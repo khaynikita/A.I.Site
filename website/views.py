@@ -6,6 +6,7 @@ from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 from .forms import SignUpForm
 from .models import Code
+from django.http import JsonResponse
 
 #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
 # Create your views here.
@@ -13,6 +14,7 @@ def home(request):
     our_list=[ 'basic', 'c', 'clike', 'cobol', 'coffeescript', 'cpp','csharp', 'cshtml', 'css', 'csv', 'dart', 'git', 'go', 'html', 'java', 'javascript', 'json', 'kotlin', 'markup-templating', 'matlab', 'mongodb', 'objectivec', 'perl', 'php', 'powershell', 'python', 'r', 'regex', 'ruby', 'rust', 'sass', 'scala', 'solidity', 'sql', 'swift', 
 'typescript', 'vbnet']
     if request.method=='POST':
+       
         code=request.POST['code']
         lang=request.POST['lang']
         #check to make sure they pick a language
@@ -139,3 +141,55 @@ def delete_past(request, Past_id):
 	past.delete()
 	messages.success(request, "Deleted Successfully...")
 	return redirect('past')
+
+# to run the code
+
+import requests
+
+def run_code(code, language_id):
+    url = "https://api.judge0.com/submissions/"
+    headers = {
+        "Content-Type": "application/json",
+        "X-API-KEY": "YOUR_API_KEY",  # Replace with your Judge0 API key
+    }
+
+    data = {
+        "source_code": code,
+        "language_id": language_id,
+    }
+
+    response = requests.post(url, json=data, headers=headers)
+
+    if response.status_code == 201:
+        submission_token = response.json()["token"]
+        return get_submission_result(submission_token)
+    else:
+        return {"error": f"Failed to submit code. Status code: {response.status_code}"}
+
+
+def get_submission_result(submission_token):
+    url = f"https://api.judge0.com/submissions/{submission_token}"
+    headers = {
+        "Content-Type": "application/json",
+    }
+
+    response = requests.get(url, headers=headers)
+
+    if response.status_code == 200:
+        result = response.json()
+        return result
+    else:
+        return {"error": f"Failed to get submission result. Status code: {response.status_code}"}
+
+def execute_code(request):
+    if request.method == 'POST':
+        code = request.POST.get('code', '')
+        language_id = request.POST.get('language_id', '')
+
+        if code and language_id:
+            result = run_code(code, language_id)
+            return JsonResponse(result)
+        else:
+            return JsonResponse({"error": "Code and language_id are required."})
+
+    return JsonResponse({"error": "Invalid request method."})
